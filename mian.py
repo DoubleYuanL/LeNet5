@@ -46,7 +46,7 @@ def init_parameters():
 	return parameters
 #前向传播
 def forward_propagation(X, parameters,is_train_or_prediction):
-	with tf.name_scope('forwardXXXX'):
+	with tf.name_scope('forward'):
 		W1 = parameters['W1'] 
 		b1 = parameters['b1'] 
 		W2 = parameters['W2'] 
