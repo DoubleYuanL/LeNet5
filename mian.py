@@ -207,6 +207,8 @@ def predict():
 		saver.restore(sess,tf.train.latest_checkpoint("model/"))
 
 		#use the sample picture to predict the unm
+		sample = 0
+		cam = 1
 		if (sample):
 			num = 0
 			my_image = "sample/" + str(num) + ".jpg"	
@@ -222,9 +224,10 @@ def predict():
 			print("prediction num is : y = " + str(np.squeeze(my_predicted_image)))
 			plt.show()
 			num = num + 1
-		else:# use the camera to predict the num
+		elif(cam):# use the camera to predict the num
 			cap = cv2.VideoCapture(0)
 			while (1):
+				num = 0
 				ret, frame = cap.read()
 				cv2.namedWindow("capture")
 				cv2.imshow("capture", frame)
@@ -251,7 +254,7 @@ def predict():
 			cap.release()
 			cv2.destroyAllWindows()
 
-train = 1
+train = 0
 if train:
 	X_train_orig , Y_train_orig , X_test_orig , Y_test_orig  = load_dataset()
 	X_train,Y_train,X_test,Y_test = init_dataset(X_train_orig , Y_train_orig , X_test_orig , Y_test_orig)
