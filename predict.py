@@ -10,7 +10,9 @@ def create_placeholder(n_H0, n_W0, n_C0, n_y):
 	X = tf.placeholder(tf.float32, [None, n_H0, n_W0, n_C0], name = "X")
 	# X = tf.placeholder(tf.float32, [None, n_H0*n_W0*n_C0], name = "X")
 	Y = tf.placeholder(tf.float32, [None,n_y], name = "Y")
-	return X,Y
+	keep_prob = tf.placeholder(tf.float32)
+	return X,Y, keep_prob
+
 #init_parameters
 def init_parameters():
 	tf.set_random_seed(1) #指定随机种子
@@ -27,8 +29,9 @@ def init_parameters():
 	parameters = {"W1": W1, "b1": b1, "W2": W2, "b2": b2, }#"W3": W3, "b3": b3, "W4": W4, "b4": b4, "W5": W5, "b5": b5} 
 
 	return parameters
+
 #forward_propagation
-def forward_propagation(X, parameters,is_train_or_prediction):
+def forward_propagation(X, parameters,keep_prob):
 	with tf.name_scope('forward'):
 		W1 = parameters['W1'] 
 		b1 = parameters['b1'] 
@@ -77,19 +80,19 @@ def forward_propagation(X, parameters,is_train_or_prediction):
 		Z3 = tf.contrib.layers.fully_connected(P1,120,activation_fn=tf.nn.relu,scope="fu1")#None)#tf.nn.relu) tf.nn.sigmoid
 
 		Z4 = tf.contrib.layers.fully_connected(Z3,84,activation_fn=tf.nn.relu)
-		if is_train_or_prediction == True:
-			Z4 = tf.nn.dropout(Z4, 0.5)
+		Z4 = tf.nn.dropout(Z4, keep_prob=keep_prob)
 		with tf.name_scope("Z5"):
 			Z5 = tf.contrib.layers.fully_connected(Z4,6,activation_fn=None)
 
 		return Z5
-#predict
+ #predict
+
 def predict():
-	X,_ = create_placeholder(64, 64, 3, 6)
+	X,_,keep_prob = create_placeholder(64, 64, 3, 6)
 
 	parameters = init_parameters()
 
-	Z5 = forward_propagation(X, parameters,is_train_or_prediction=False)
+	Z5 = forward_propagation(X, parameters,keep_prob)
 
 	Z5 = tf.argmax(Z5,1)
 
@@ -111,7 +114,7 @@ def predict():
 			my_predicted_image = scipy.misc.imresize(image, size=(num_px,num_px)).reshape((1,64,64,3))/255
 			my_predicted_image = my_predicted_image.astype(np.float32)
 
-			my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image})
+			my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image,keep_prob:1.0})
 
 			plt.imshow(image) 
 			print("prediction num is : y = " + str(np.squeeze(my_predicted_image)))
@@ -136,7 +139,7 @@ def predict():
 					my_predicted_image = scipy.misc.imresize(image, size=(num_px,num_px)).reshape((1,64,64,3))/255
 					my_predicted_image = my_predicted_image.astype(np.float32)
 
-					my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image})
+					my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image,keep_prob:1.0})
 
 					plt.imshow(image) 
 					print("预测结果: y = " + str(np.squeeze(my_predicted_image)))

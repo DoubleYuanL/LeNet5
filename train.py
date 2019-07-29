@@ -29,7 +29,8 @@ def create_placeholder(n_H0, n_W0, n_C0, n_y):
 	X = tf.placeholder(tf.float32, [None, n_H0, n_W0, n_C0], name = "X")
 	# X = tf.placeholder(tf.float32, [None, n_H0*n_W0*n_C0], name = "X")
 	Y = tf.placeholder(tf.float32, [None,n_y], name = "Y")
-	return X,Y
+	keep_prob = tf.placeholder(tf.float32)
+	return X,Y, keep_prob
 
 #init_parameters
 def init_parameters():
@@ -49,7 +50,7 @@ def init_parameters():
 	return parameters
 
 #forward_propagation
-def forward_propagation(X, parameters,is_train_or_prediction):
+def forward_propagation(X, parameters,keep_prob):
 	with tf.name_scope('forward'):
 		W1 = parameters['W1'] 
 		b1 = parameters['b1'] 
@@ -98,8 +99,7 @@ def forward_propagation(X, parameters,is_train_or_prediction):
 		Z3 = tf.contrib.layers.fully_connected(P1,120,activation_fn=tf.nn.relu,scope="fu1")#None)#tf.nn.relu) tf.nn.sigmoid
 
 		Z4 = tf.contrib.layers.fully_connected(Z3,84,activation_fn=tf.nn.relu)
-		if is_train_or_prediction == True:
-			Z4 = tf.nn.dropout(Z4, 0.5)
+		Z4 = tf.nn.dropout(Z4, keep_prob=keep_prob)
 		with tf.name_scope("Z5"):
 			Z5 = tf.contrib.layers.fully_connected(Z4,6,activation_fn=None)
 
@@ -117,11 +117,11 @@ def model(X_train,Y_train,X_test,Y_test,learning_rate,num_epochs,minibatch_size,
 	n_y = Y_train.shape[1]
 	costs = []
 
-	X,Y = create_placeholder(n_H0, n_W0, n_C0, n_y)
+	X,Y,keep_prob = create_placeholder(n_H0, n_W0, n_C0, n_y)
 
 	parameters = init_parameters()
 
-	Z5 = forward_propagation(X, parameters,is_train_or_prediction=True)
+	Z5 = forward_propagation(X, parameters,keep_prob)
 
 	cost = compute_loss(Z5, Y)
 
@@ -144,7 +144,7 @@ def model(X_train,Y_train,X_test,Y_test,learning_rate,num_epochs,minibatch_size,
 				(minibatch_X,minibatch_Y) = minibatch
 				# minibatch_X = np.reshape(minibatch_X, [-1,12288])
 				#最小化这个数据块的成本
-				_ , temp_cost = sess.run([optimizer,cost],feed_dict={X:minibatch_X, Y:minibatch_Y})
+				_ , temp_cost = sess.run([optimizer,cost],feed_dict={X:minibatch_X, Y:minibatch_Y,keep_prob:0.5})
 
 				#累加数据块的成本值
 				minibatch_cost += temp_cost / num_minibatches
@@ -182,77 +182,13 @@ def model(X_train,Y_train,X_test,Y_test,learning_rate,num_epochs,minibatch_size,
 
 		# X_train = np.reshape(X_train, [-1,12288])
 		# X_test = np.reshape(X_test, [-1,12288])
-		train_accuracy = accuracy.eval({X: X_train, Y: Y_train})
-		test_accuary = accuracy.eval({X: X_test, Y: Y_test})
+		train_accuracy = accuracy.eval({X: X_train, Y: Y_train, keep_prob:1.0})
+		test_accuary = accuracy.eval({X: X_test, Y: Y_test,keep_prob:1.0})
 
 		print("训练集准确度：" + str(train_accuracy))
 		print("测试集准确度：" + str(test_accuary))
 
 		return parameters
-
-#predict
-def predict():
-	X,_ = create_placeholder(64, 64, 3, 6)
-
-	parameters = init_parameters()
-
-	Z5 = forward_propagation(X, parameters,is_train_or_prediction=False)
-
-	Z5 = tf.argmax(Z5,1)
-
-	init = tf.global_variables_initializer()
-	saver = tf.train.Saver()
-	with tf.Session() as sess:
-		sess.run(init)
-		saver.restore(sess,tf.train.latest_checkpoint("model/"))
-
-		#use the sample picture to predict the unm
-		sample = 0
-		cam = 1
-		if (sample):
-			num = 0
-			my_image = "sample/" + str(num) + ".jpg"	
-			num_px = 64
-			fname =  my_image 
-			image = np.array(ndimage.imread(fname, flatten=False))#.astype(np.float32)
-			my_predicted_image = scipy.misc.imresize(image, size=(num_px,num_px)).reshape((1,64,64,3))/255
-			my_predicted_image = my_predicted_image.astype(np.float32)
-
-			my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image})
-
-			plt.imshow(image) 
-			print("prediction num is : y = " + str(np.squeeze(my_predicted_image)))
-			plt.show()
-			num = num + 1
-		elif(cam):# use the camera to predict the num
-			cap = cv2.VideoCapture(0)
-			while (1):
-				num = 0
-				ret, frame = cap.read()
-				cv2.namedWindow("capture")
-				cv2.imshow("capture", frame)
-				k = cv2.waitKey(1) & 0xFF
-				if  k == ord('s'):
-					frame = cv2.resize(frame, (int(256), int(256)))
-					cv2.imwrite("sample/cam/" + str(num)+".jpg", frame)
-
-					my_image = "sample/cam/" + str(num) + ".jpg"	
-					num_px = 64
-					fname =  my_image 
-					image = np.array(ndimage.imread(fname, flatten=False))#.astype(np.float32)
-					my_predicted_image = scipy.misc.imresize(image, size=(num_px,num_px)).reshape((1,64,64,3))/255
-					my_predicted_image = my_predicted_image.astype(np.float32)
-
-					my_predicted_image = sess.run(Z5, feed_dict={X:my_predicted_image})
-
-					plt.imshow(image) 
-					print("预测结果: y = " + str(np.squeeze(my_predicted_image)))
-					plt.show()
-					num = num + 1
-				elif k == ord('q'):
-					break
-			cap.release()
-			cv2.destroyAllWindows()
 
 if __name__ == '__main__':
 	X_train_orig , Y_train_orig , X_test_orig , Y_test_orig  = load_dataset()
